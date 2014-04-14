@@ -27,12 +27,12 @@ def get_applied_migrations():
 def get_content_for_up_migrations(applied_migrations):
     filenames = [filename for filename in os.listdir(migrations_dir) if filename.endswith('.up.sql')]
     filenames.sort()
-    files_content = {}
+    files_content = []
     for filename in filenames:
         if get_normalized_migration_name(filename) in applied_migrations:
             continue
         with file('{}/{}'.format(migrations_dir, filename)) as f:
-            files_content[filename] = re.sub(r"\n", "", f.read())
+            files_content.append((filename, re.sub(r"\n", "", f.read())))
     return files_content
 
 
@@ -40,13 +40,13 @@ def get_content_for_down_migrations(to, applied_migrations):
     filenames = [filename for filename in os.listdir(migrations_dir) if filename.endswith('.down.sql')]
     filenames.sort()
     filenames = reversed(filenames)
-    files_content = {}
+    files_content = []
     for filename in filenames:
         normalized_migration_name = get_normalized_migration_name(filename)
         if normalized_migration_name not in applied_migrations:
             continue
         with file('{}/{}'.format(migrations_dir, filename)) as f:
-            files_content[filename] = re.sub(r"\n", "", f.read())
+            files_content.append((filename, re.sub(r"\n", "", f.read())))
         if to == normalized_migration_name:
             break
     return files_content
@@ -76,7 +76,9 @@ class Migrations(object):
         applied_migrations = get_applied_migrations()
         migrations_to_down = get_content_for_down_migrations(to, applied_migrations)
         cursor = connection.cursor()
-        for migration_name, migration in migrations_to_down.iteritems():
+        for _migration in migrations_to_down:
+            migration_name = _migration[0]
+            migration = _migration[1]
             cursor.execute(migration)
             delete_applied_migration(get_normalized_migration_name(migration_name))
             print "Downgraded migration {}".format(migration_name)
@@ -86,7 +88,9 @@ class Migrations(object):
         applied_migrations = get_applied_migrations()
         migrations_to_apply = get_content_for_up_migrations(applied_migrations)
         cursor = connection.cursor()
-        for migration_name, migration in migrations_to_apply.iteritems():
+        for _migration in migrations_to_apply:
+            migration_name = _migration[0]
+            migration = _migration[1]
             cursor.execute(migration)
             insert_applied_migration(get_normalized_migration_name(migration_name))
             print "Applied migration {}".format(migration_name)
